@@ -1,0 +1,13 @@
+{
+  "name": "@whittakertech/codex-tools",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20.0.0" },
+  "scripts": {
+    "build": "tsc",
+    "orchestrate": "node dist/tools/index.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
