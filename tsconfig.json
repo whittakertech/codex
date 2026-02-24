@@ -8,5 +8,5 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["tools/**/*", "state/**/*"]
+  "include": ["tools/**/*", "state/**/*", "tests/**/*"]
 }

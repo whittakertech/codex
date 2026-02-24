@@ -1,11 +1,10 @@
 // CLI: node dist/tools/index.js --owner=X --repo=Y --ref=Z
 import type { EngineRef } from '../state/schema.js';
 
-function parseArgs(): EngineRef {
-  const args = process.argv.slice(2);
+export function parseArgs(argv: string[]): EngineRef {
   const parsed: Record<string, string> = {};
 
-  for (const arg of args) {
+  for (const arg of argv) {
     const match = arg.match(/^--([^=]+)=(.+)$/);
     if (match) {
       parsed[match[1]] = match[2];
@@ -14,14 +13,20 @@ function parseArgs(): EngineRef {
 
   const { owner, repo, ref } = parsed;
   if (!owner || !repo || !ref) {
-    console.error('Usage: node dist/tools/index.js --owner=X --repo=Y --ref=Z');
-    process.exit(1);
+    throw new Error('Usage: node dist/tools/index.js --owner=X --repo=Y --ref=Z');
   }
 
   return { owner, repo, ref };
 }
 
-const engine = parseArgs();
-console.log(`[codex] Orchestrating tools for ${engine.owner}/${engine.repo} @ ${engine.ref}`);
-// When tools are added, each runs here in sequence and writes state via writer.ts.
-console.log('[codex] Tool orchestration complete (stub — no tools registered yet)');
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    const engine = parseArgs(process.argv.slice(2));
+    console.log(`[codex] Orchestrating tools for ${engine.owner}/${engine.repo} @ ${engine.ref}`);
+    // When tools are added, each runs here in sequence and writes state via writer.ts.
+    console.log('[codex] Tool orchestration complete (stub — no tools registered yet)');
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+}
