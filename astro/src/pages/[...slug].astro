@@ -1,0 +1,26 @@
+---
+/**
+ * Catch-all route that generates static pages for all docs loaded from _ingest/.
+ * Delegates rendering to Starlight's StarlightPage component.
+ *
+ * With the Astro content layer glob loader (Astro >=4.14), Starlight may not
+ * auto-generate routes from the custom loader — this file handles that explicitly.
+ */
+import { getCollection, render } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+export async function getStaticPaths() {
+  const allDocs = await getCollection('docs');
+  return allDocs.map(entry => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+
+<StarlightPage frontmatter={entry.data}>
+  <Content />
+</StarlightPage>

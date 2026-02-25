@@ -1,0 +1,31 @@
+---
+/**
+ * Root redirect — sends visitors to the first engine's docs.
+ * The first engine is determined at build time from the _ingest/ directories.
+ * Falls back to a static page if no content has been mounted.
+ */
+import { readdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+const ingestDir = join(process.cwd(), 'src', 'content', '_ingest');
+const firstEngine = existsSync(ingestDir)
+  ? readdirSync(ingestDir, { withFileTypes: true }).find(d => d.isDirectory())?.name ?? null
+  : null;
+
+if (firstEngine) {
+  return Astro.redirect(`/${firstEngine}/`);
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WhittakerTech Docs</title>
+  </head>
+  <body>
+    <h1>WhittakerTech Docs</h1>
+    <p>No documentation has been deployed yet. Trigger a publish workflow from an engine repository.</p>
+  </body>
+</html>

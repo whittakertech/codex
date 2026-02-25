@@ -1,0 +1,177 @@
+name: Publish Docs
+
+on:
+  workflow_call:
+    inputs:
+      engine_owner:
+        description: "GitHub owner of the engine repository (e.g. whittakertech)"
+        type: string
+        required: true
+      engine_repo:
+        description: "GitHub repository name of the engine (e.g. midas)"
+        type: string
+        required: true
+      engine_ref:
+        description: "Git commit SHA to publish from the engine repository"
+        type: string
+        required: true
+      docs_artifact_name:
+        description: "Name of the uploaded docs artifact from the engine workflow"
+        type: string
+        required: false
+        default: 'docs'
+      site_url:
+        description: "Canonical site URL for the deployed docs (e.g. https://whittakertech.github.io/midas)"
+        type: string
+        required: true
+    secrets:
+      CODEX_DEPLOY_KEY:
+        description: "SSH deploy key with write access to the engine's gh-pages branch and Codex overlay branches"
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    env:
+      OWNER: ${{ inputs.engine_owner }}
+      REPO:  ${{ inputs.engine_repo }}
+      REF:   ${{ inputs.engine_ref }}
+
+    steps:
+      # ── 1. Checkout Codex (main) ───────────────────────────────────────────
+      - name: Checkout Codex
+        uses: actions/checkout@v4
+        with:
+          path: .
+          fetch-depth: 0  # full history needed for overlay branch operations
+
+      # ── 2. Set up Node ────────────────────────────────────────────────────
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+
+      # ── 3. Install root (tools layer) dependencies ────────────────────────
+      - name: Install tools layer dependencies
+        run: npm install
+
+      # ── 4. Shallow clone engine repository ────────────────────────────────
+      - name: Checkout engine repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.engine_owner }}/${{ inputs.engine_repo }}
+          ref: ${{ inputs.engine_ref }}
+          path: .engine
+          fetch-depth: 1
+
+      # ── 5. Download docs artifact from engine workflow ────────────────────
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.docs_artifact_name }}
+          path: .engine/docs/api/
+
+      # ── 6. Restore overlay state ──────────────────────────────────────────
+      - name: Restore overlay state
+        env:
+          OVERLAY_BRANCH: source/${{ inputs.engine_owner }}/${{ inputs.engine_repo }}
+        run: |
+          mkdir -p state-overlay/state
+
+          git fetch origin "$OVERLAY_BRANCH" 2>/dev/null || true
+
+          if git show-ref --verify --quiet "refs/remotes/origin/$OVERLAY_BRANCH"; then
+            # Extract only state/ from the overlay branch into state-overlay/
+            git archive "remotes/origin/$OVERLAY_BRANCH" state/ 2>/dev/null \
+              | tar -x -C state-overlay/ \
+              || echo "[codex] No prior state found in overlay branch — starting fresh"
+          else
+            echo "[codex] Overlay branch does not exist yet — starting with empty state"
+          fi
+
+      # ── 7. Mount ingest content ───────────────────────────────────────────
+      - name: Mount ingest content
+        run: |
+          ENGINE="${{ inputs.engine_owner }}_${{ inputs.engine_repo }}"
+
+          # Docs (handwritten + YARD-generated API)
+          mkdir -p "astro/src/content/_ingest/$ENGINE"
+          if [ -d ".engine/docs/" ]; then
+            rsync -a ".engine/docs/" "astro/src/content/_ingest/$ENGINE/"
+          fi
+
+          # Public assets (images, logos)
+          if [ -d ".engine/public/" ]; then
+            mkdir -p "astro/public/_ingest/$ENGINE"
+            rsync -a ".engine/public/" "astro/public/_ingest/$ENGINE/"
+          fi
+
+      # ── 8. Run tool orchestration ─────────────────────────────────────────
+      - name: Run tool orchestration
+        env:
+          CODEX_STATE_DIR: ./state-overlay
+        run: |
+          npm run build
+          npm run orchestrate -- \
+            --owner="${{ inputs.engine_owner }}" \
+            --repo="${{ inputs.engine_repo }}" \
+            --ref="${{ inputs.engine_ref }}"
+
+      # ── 9. Install Astro dependencies ─────────────────────────────────────
+      - name: Install Astro dependencies
+        run: npm install --prefix astro
+
+      # ── 10. Build static site ─────────────────────────────────────────────
+      - name: Build static site
+        env:
+          CODEX_SITE_URL: ${{ inputs.site_url }}
+        run: npm run build --prefix astro
+
+      # ── 11. Persist overlay state ─────────────────────────────────────────
+      - name: Persist overlay state
+        env:
+          OVERLAY_BRANCH: source/${{ inputs.engine_owner }}/${{ inputs.engine_repo }}
+        run: |
+          git config user.name  "codex[bot]"
+          git config user.email "codex[bot]@users.noreply.github.com"
+
+          git fetch origin "$OVERLAY_BRANCH" 2>/dev/null || true
+
+          if git show-ref --verify --quiet "refs/remotes/origin/$OVERLAY_BRANCH"; then
+            git checkout -B "$OVERLAY_BRANCH" "remotes/origin/$OVERLAY_BRANCH"
+          else
+            git checkout --orphan "$OVERLAY_BRANCH"
+            git rm -rf . 2>/dev/null || true
+          fi
+
+          # Copy only paths declared in .codex_artifacts (currently state/)
+          mkdir -p state/
+          if [ -d "state-overlay/state" ]; then
+            rsync -a state-overlay/state/ state/
+          fi
+
+          git add state/
+
+          if git diff --cached --quiet; then
+            echo "[codex] No overlay state changes to commit"
+          else
+            git commit -m "chore: update overlay state for $OWNER/$REPO @ $REF [skip ci]"
+            git push origin "$OVERLAY_BRANCH" --force-with-lease
+          fi
+
+          # Return to main for subsequent steps
+          git checkout main
+
+      # ── 12. Deploy to engine gh-pages ─────────────────────────────────────
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key:          ${{ secrets.CODEX_DEPLOY_KEY }}
+          external_repository: ${{ inputs.engine_owner }}/${{ inputs.engine_repo }}
+          publish_dir:         astro/dist/
+          force_orphan:        true
+          user_name:           "codex[bot]"
+          user_email:          "codex[bot]@users.noreply.github.com"
+          commit_message:      "docs: deploy ${{ inputs.engine_repo }} @ ${{ inputs.engine_ref }} [skip ci]"
