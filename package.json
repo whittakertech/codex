@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc",
     "orchestrate": "node dist/tools/index.js",
+    "preview:build": "npm run build && node dist/tools/preview/build.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
