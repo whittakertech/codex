@@ -127,8 +127,8 @@ codex/
 │  ├─ astro.config.mjs
 │  ├─ package.json
 │  ├─ src/
-│  │  ├─ content/
-│  │  │  └─ _ingest/        (gitignored)
+│  │  ├─ content.config.ts  (docs collection: glob loader → _ingest)
+│  │  ├─ _ingest/           (gitignored)
 │  │  ├─ layouts/
 │  │  ├─ components/
 │  │  └─ pages/
@@ -185,7 +185,7 @@ Codex performs:
 Mount engine content into:
 
 ```
-astro/src/content/_ingest/{engine}/
+astro/src/_ingest/{engine}/
 ```
 
 Mount generated API docs.

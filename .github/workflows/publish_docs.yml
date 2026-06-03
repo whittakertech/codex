@@ -97,9 +97,9 @@ jobs:
           ENGINE="${{ inputs.engine_owner }}_${{ inputs.engine_repo }}"
 
           # Docs (handwritten + YARD-generated API)
-          mkdir -p "astro/src/content/_ingest/$ENGINE"
+          mkdir -p "astro/src/_ingest/$ENGINE"
           if [ -d ".engine/docs/" ]; then
-            rsync -a ".engine/docs/" "astro/src/content/_ingest/$ENGINE/"
+            rsync -a ".engine/docs/" "astro/src/_ingest/$ENGINE/"
           fi
 
           # Public assets (images, logos)

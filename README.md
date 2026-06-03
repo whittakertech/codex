@@ -33,7 +33,7 @@ codex/
 └─ .github/workflows/publish_docs.yml
 ```
 
-`astro/src/content/_ingest/` and `astro/dist/` are ephemeral — never committed.
+`astro/src/_ingest/` and `astro/dist/` are ephemeral — never committed.
 
 ---
 

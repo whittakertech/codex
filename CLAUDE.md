@@ -29,7 +29,8 @@ It accepts structured content from engine repositories, orchestrates publishing 
 codex/
 ├─ astro/                   # Astro static site (Starlight theme)
 │  └─ src/
-│     └─ content/_ingest/   # ephemeral — never committed
+│     ├─ content.config.ts  # `docs` collection (glob loader → _ingest)
+│     └─ _ingest/           # ephemeral — never committed
 ├─ tools/
 │  ├─ virgil/               # publishing tool
 │  ├─ lorelei/              # publishing tool
@@ -44,7 +45,7 @@ codex/
 
 ### Ephemeral Directories (never committed)
 
-- `astro/src/content/_ingest/` — engine content mounted at build time
+- `astro/src/_ingest/` — engine content mounted at build time
 - `astro/public/_generated/` — tool-emitted assets
 - `astro/dist/` — Astro build output
 
