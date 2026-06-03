@@ -65,24 +65,33 @@ Every tool in `tools/` must:
 
 ## Build Commands
 
-> **Note:** The implementation has not started. Commands below reflect the planned setup; add actual commands here as modules are scaffolded.
-
-Expected once `astro/package.json` exists:
+Node is pinned to **24.16.0** via `.tool-versions` (asdf). The global default may be
+`nodejs system`, so activate asdf before running anything (CI keys off `.tool-versions`):
 
 ```bash
-# Install dependencies
+export ASDF_DATA_DIR="$HOME/.asdf"
+export PATH="$ASDF_DATA_DIR/bin:$ASDF_DATA_DIR/shims:$PATH"
+```
+
+```bash
+# Tools layer (tsc / ESLint / Vitest)
+npm install
+npm run build          # tsc
+npm run lint           # ESLint (0 errors expected)
+npm test               # Vitest
+
+# Astro site (Astro 6 + Starlight 0.39)
 npm install --prefix astro
-
-# Development server
-npm run dev --prefix astro
-
-# Production build
 npm run build --prefix astro
 
-# Lint / type-check (TypeScript tools)
-npm run lint --prefix .
-npx tsc --noEmit
+# Hatchery preview — build + serve one engine's docs in one command
+bin/codex-preview midas ~/apps/midas/docs
+# → https://midas.hatchery.whittakertech.com  (docker compose down to tear down)
 ```
+
+> Starlight owns docs-collection routing — do **not** add a custom `[...slug].astro`.
+> The sidebar is built explicitly from `_ingest` in `astro.config.mjs` (Starlight's
+> `autogenerate` only walks `src/content/docs`).
 
 ---
 
