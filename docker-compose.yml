@@ -1,0 +1,35 @@
+# Hatchery preview of the Codex-unified docs style, served per engine.
+#
+# Static-only: nginx serves the site the local driver builds into astro/dist
+# (`npm run preview:build -- --engine midas --src ~/apps/midas/docs`). A rebuild
+# is just a re-run of the driver — the dir is bind-mounted, no image rebuild.
+#
+# Routing: *.hatchery.whittakertech.com already has wildcard DNS + Advanced SSL
+# + a tunnel public-hostname, so a Traefik router on the shared `proxy` network
+# is all that's needed to publish at midas.hatchery.whittakertech.com. Public,
+# no auth — the content is already public at midas.whittakertech.com.
+name: codex
+
+# ENGINE selects which engine's preview to serve (default: midas). One preview
+# runs at a time — astro/dist holds the most recently built engine; bring up a
+# different engine by rebuilding it and re-running with ENGINE set. `bin/codex-preview`
+# wires the build + ENGINE together.
+services:
+  preview:
+    image: nginx:alpine
+    container_name: codex-${ENGINE:-midas}-preview
+    restart: unless-stopped
+    volumes:
+      - ./astro/dist:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [proxy]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.codex-${ENGINE:-midas}.rule=Host(`${ENGINE:-midas}.hatchery.whittakertech.com`)"
+      - "traefik.http.routers.codex-${ENGINE:-midas}.entrypoints=web,tunnel"
+      - "traefik.http.services.codex-${ENGINE:-midas}.loadbalancer.server.port=80"
+
+networks:
+  proxy:
+    external: true

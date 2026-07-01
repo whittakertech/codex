@@ -1,7 +1,7 @@
 .idea/
 
 # Ephemeral Astro content
-astro/src/content/_ingest/
+astro/src/_ingest/
 astro/public/_ingest/
 astro/public/_generated/
 astro/dist/
@@ -12,3 +12,6 @@ astro/node_modules/
 
 # Build output
 dist/
+
+# Astro generated cache + types (regenerated on every build)
+astro/.astro/

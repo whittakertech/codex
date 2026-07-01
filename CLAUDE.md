@@ -27,24 +27,31 @@ It accepts structured content from engine repositories, orchestrates publishing 
 
 ```
 codex/
-├─ astro/                   # Astro static site (Starlight theme)
+├─ astro/                   # Astro static site (Astro 6 + Starlight 0.39)
 │  └─ src/
-│     └─ content/_ingest/   # ephemeral — never committed
+│     ├─ content.config.ts  # `docs` collection (glob loader → _ingest)
+│     └─ _ingest/           # ephemeral — never committed
 ├─ tools/
-│  ├─ virgil/               # publishing tool
-│  ├─ lorelei/              # publishing tool
-│  └─ index.ts              # tool orchestration entrypoint
+│  ├─ index.ts              # tool orchestration entrypoint
+│  ├─ ingest/normalize.ts   # frontmatter normalization for Starlight
+│  ├─ preview/build.ts      # local docs build driver (mount + normalize + astro build)
+│  ├─ virgil/               # planned publishing tool — not yet built
+│  └─ lorelei/              # planned publishing tool — not yet built
 ├─ state/
 │  ├─ loader.ts
 │  ├─ writer.ts
 │  └─ schema.ts
+├─ bin/codex-preview        # hatchery preview harness (build + docker compose up)
+├─ deploy/                  # nginx.conf for preview serving
+├─ docker-compose.yml       # Traefik-integrated hatchery preview stack
+├─ tests/                   # Vitest suites (state + tools)
 ├─ .codex_artifacts         # inverse .gitignore — defines allowed overlay content
 └─ .github/workflows/publish_docs.yml
 ```
 
 ### Ephemeral Directories (never committed)
 
-- `astro/src/content/_ingest/` — engine content mounted at build time
+- `astro/src/_ingest/` — engine content mounted at build time
 - `astro/public/_generated/` — tool-emitted assets
 - `astro/dist/` — Astro build output
 
@@ -64,33 +71,59 @@ Every tool in `tools/` must:
 
 ## Build Commands
 
-> **Note:** The implementation has not started. Commands below reflect the planned setup; add actual commands here as modules are scaffolded.
-
-Expected once `astro/package.json` exists:
+Node is pinned to **24.16.0** via `.tool-versions` (asdf). The global default may be
+`nodejs system`, so activate asdf before running anything (CI keys off `.tool-versions`):
 
 ```bash
-# Install dependencies
+export ASDF_DATA_DIR="$HOME/.asdf"
+export PATH="$ASDF_DATA_DIR/bin:$ASDF_DATA_DIR/shims:$PATH"
+```
+
+```bash
+# Tools layer (tsc / ESLint / Vitest)
+npm install
+npm run build          # tsc
+npm run lint           # ESLint (0 errors expected)
+npm test               # Vitest
+
+# Astro site (Astro 6 + Starlight 0.39)
 npm install --prefix astro
-
-# Development server
-npm run dev --prefix astro
-
-# Production build
 npm run build --prefix astro
 
-# Lint / type-check (TypeScript tools)
-npm run lint --prefix .
-npx tsc --noEmit
+# Hatchery preview — build + serve one engine's docs in one command
+bin/codex-preview midas ~/apps/midas/docs
+# → https://midas.hatchery.whittakertech.com  (docker compose down to tear down)
 ```
+
+> Starlight owns docs-collection routing — do **not** add a custom `[...slug].astro`.
+> The sidebar is built explicitly from `_ingest` in `astro.config.mjs` (Starlight's
+> `autogenerate` only walks `src/content/docs`).
 
 ---
 
 ## Implementation Status
 
-The repository currently contains only `ARCH.md` and `.gitignore`. No source code has been written. When beginning implementation:
+The core pipeline is built and in use (refs #96–#100). `npm run build` (tsc),
+`npm run lint` (ESLint, 0 errors), and `npm test` (Vitest) all pass.
 
-1. Scaffold `astro/` first (Astro + Starlight) — establishes the compilation layer.
-2. Scaffold `state/` — schema and loader/writer before any tool uses state.
-3. Implement tools under `tools/virgil/` and `tools/lorelei/` against the tool contract above.
-4. Add `.codex_artifacts` declaring `state/` (and any other overlay-allowed paths).
-5. Wire the GitHub Actions workflow in `.github/workflows/publish_docs.yml`.
+**Working:**
+- **Compilation (Astro)** — Astro 6 + Starlight 0.39 configured; `content.config.ts`
+  glob loader, sidebar built from `_ingest` in `astro.config.mjs`, landing page that
+  lists mounted engines. Builds successfully.
+- **Compilation (tools)** — `tools/index.ts` orchestration CLI (`--owner/--repo/--ref`),
+  `tools/ingest/normalize.ts` (frontmatter normalization), and `tools/preview/build.ts`
+  (mount + normalize + `astro build`) implemented.
+- **State** — `state/loader.ts`, `state/writer.ts`, `state/schema.ts` implemented and
+  tested; overlay branches created on first run.
+- **Deployment** — `.github/workflows/publish_docs.yml` is a complete reusable workflow
+  (checkout → Node from `.tool-versions` → clone engine → download artifact → restore
+  overlay state → mount into `_ingest/` → orchestrate → Astro build → persist state →
+  deploy to engine `gh-pages`).
+- **Hatchery preview** — `bin/codex-preview <engine> <docs-path>` works end-to-end
+  (build + `docker compose` up behind Traefik).
+
+**Not yet built (planned enhancements, not blockers):**
+- `tools/virgil/` and `tools/lorelei/` do not exist. `tools/index.ts` registers no tools
+  yet ("stub — no tools registered yet"); docs publish fine without them. To add one:
+  create `tools/{name}/` per the tool contract above, import + invoke it in
+  `tools/index.ts` after state load, and extend the state schema union if needed.
