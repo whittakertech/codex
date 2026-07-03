@@ -1,0 +1,35 @@
+/* WhittakerTech brand theme for Starlight. Remaps brand `--wt-*` tokens onto
+ * Starlight's own CSS custom properties. The `--wt-*` source is injected as a
+ * separate customCss entry ahead of this file — either the real tokens fetched
+ * at build time (tools/brand/fetch.ts → src/styles/_brand/tokens.css, never
+ * committed) or src/styles/brand-fallback.css when nothing has been fetched
+ * yet (plain `astro dev`/`astro build`). See astro.config.mjs. This file stays
+ * the only place that knows Starlight's variable names. */
+
+:root {
+  --sl-color-accent-low: var(--wt-color-neutral-100);
+  --sl-color-accent: var(--wt-color-brand);
+  --sl-color-accent-high: var(--wt-color-accent);
+  --sl-color-white: var(--wt-color-neutral-0);
+  --sl-color-gray-1: var(--wt-color-neutral-100);
+  --sl-color-gray-2: var(--wt-color-neutral-300);
+  --sl-color-gray-3: var(--wt-color-neutral-500);
+  --sl-color-gray-4: var(--wt-color-neutral-700);
+  --sl-color-gray-5: var(--wt-color-neutral-900);
+  --sl-color-black: var(--wt-color-neutral-900);
+
+  --sl-font: var(--wt-font-sans);
+  --sl-font-mono: var(--wt-font-mono);
+}
+
+[data-theme='light'] {
+  --sl-color-accent-low: var(--wt-color-neutral-50);
+  --sl-color-accent: var(--wt-color-brand);
+  --sl-color-accent-high: var(--wt-color-accent);
+  --sl-color-white: var(--wt-color-neutral-900);
+  --sl-color-gray-1: var(--wt-color-neutral-700);
+  --sl-color-gray-2: var(--wt-color-neutral-500);
+  --sl-color-gray-6: var(--wt-color-neutral-50);
+  --sl-color-gray-7: var(--wt-color-neutral-0);
+  --sl-color-black: var(--wt-color-neutral-0);
+}

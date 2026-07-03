@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { normalizeDir } from '../ingest/normalize.js';
+import { fetchBrand } from '../brand/fetch.js';
 
 /**
  * Local docs build driver — the dev-harness half of epic 0.2.0.
@@ -20,11 +21,14 @@ export interface PreviewArgs {
   src: string;
   /** Canonical site URL; defaults to the engine's hatchery host. */
   siteUrl?: string;
+  /** Brand CDN root or a local `dist/` path; defaults to CODEX_BRAND_SOURCE or the CDN. */
+  brandSource?: string;
 }
 
 const ENGINE_SLUG = /^[a-z0-9][a-z0-9_-]*$/i;
+const DEFAULT_BRAND_SOURCE = 'https://brand.whittakertech.com';
 
-/** Parse `--engine <slug> --src <path> [--site-url <url>]` (also accepts `--key=value`). */
+/** Parse `--engine <slug> --src <path> [--site-url <url>] [--brand-source <url-or-path>]`. */
 export function parseArgs(argv: string[]): PreviewArgs {
   const opts: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
@@ -37,7 +41,16 @@ export function parseArgs(argv: string[]): PreviewArgs {
   if (!ENGINE_SLUG.test(opts.engine)) {
     throw new Error(`invalid engine slug: ${opts.engine}`);
   }
-  return { engine: opts.engine, src: opts.src, siteUrl: opts['site-url'] };
+  return {
+    engine: opts.engine,
+    src: opts.src,
+    siteUrl: opts['site-url'],
+    brandSource: opts['brand-source'],
+  };
+}
+
+function titleCase(name: string): string {
+  return name.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**
@@ -80,11 +93,25 @@ export async function buildPreview(
   });
   console.log(`[codex] mounted ${args.engine} → ${dest} (normalized ${normalized.length} file(s))`);
 
+  const brandSource = args.brandSource ?? process.env.CODEX_BRAND_SOURCE ?? DEFAULT_BRAND_SOURCE;
+  try {
+    const brand = await fetchBrand({ product: args.engine, source: brandSource }, cwd);
+    console.log(
+      `[codex] brand ${brand.version} (${brandSource}): logo=${brand.logoSource} logo-mark=${brand.logoMarkSource}`
+    );
+  } catch (err) {
+    console.warn(
+      `[codex] brand fetch skipped (${brandSource} unreachable) — using fallback theme: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+  }
+
   const siteUrl = args.siteUrl ?? defaultSiteUrl(args.engine);
   const result = spawnSync('npm', ['run', 'build', '--prefix', 'astro'], {
     cwd,
     stdio: 'inherit',
-    env: { ...process.env, CODEX_SITE_URL: siteUrl },
+    env: { ...process.env, CODEX_SITE_URL: siteUrl, CODEX_ENGINE_NAME: titleCase(args.engine) },
   });
   if (result.status !== 0) {
     throw new Error(`astro build failed (exit ${result.status ?? 'signal ' + result.signal})`);

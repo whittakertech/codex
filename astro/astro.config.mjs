@@ -81,12 +81,34 @@ function titleCase(name) {
   return name.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// CODEX_ENGINE_NAME is the product's display name (e.g. "Midas"), set per engine
+// in CI/the preview harness alongside CODEX_SITE_URL. "Engine | Brand" per-site
+// title (product leads so tabs stay distinguishable across engines when
+// truncated) — falls back to the bare brand name when building without an
+// engine mounted (e.g. local `astro dev`).
+const engineName = process.env.CODEX_ENGINE_NAME;
+const siteTitle = engineName ? `${engineName} | WhittakerTech` : 'WhittakerTech Docs';
+
+// Brand theme + logo: tools/brand/fetch.ts (run by the preview harness / CI
+// before `astro build`) writes the live brand tokens + product logo into
+// src/styles/_brand/ and src/assets/_brand/. Fall back to the committed
+// snapshots when nothing has been fetched yet, so `astro dev`/`astro build`
+// never breaks on a missing file.
+const brandTokensPath = existsSync(join(__dirname, 'src', 'styles', '_brand', 'tokens.css'))
+  ? './src/styles/_brand/tokens.css'
+  : './src/styles/brand-fallback.css';
+const brandLogoPath = existsSync(join(__dirname, 'src', 'assets', '_brand', 'wordmark.svg'))
+  ? './src/assets/_brand/wordmark.svg'
+  : './src/assets/brand-fallback-logo.svg';
+
 export default defineConfig({
   // CODEX_SITE_URL is set per engine in CI (e.g. https://whittakertech.github.io/midas)
   site: process.env.CODEX_SITE_URL ?? 'http://localhost:4321',
   integrations: [
     starlight({
-      title: 'WhittakerTech Docs',
+      title: siteTitle,
+      logo: { src: brandLogoPath },
+      customCss: [brandTokensPath, './src/styles/theme.css'],
       sidebar: buildSidebar(),
     }),
   ],
