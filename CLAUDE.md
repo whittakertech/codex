@@ -121,6 +121,16 @@ The core pipeline is built and in use (refs #96–#100). `npm run build` (tsc),
   deploy to engine `gh-pages`).
 - **Hatchery preview** — `bin/codex-preview <engine> <docs-path>` works end-to-end
   (build + `docker compose` up behind Traefik).
+- **Brand theming** — `tools/brand/fetch.ts` pulls `@whittakertech/brand`'s tokens.css
+  + a product's logo (per-product override with global fallback, resolved via
+  `manifest.json` — see `~/apps/brand/README.md` → "CDN layout") into ephemeral
+  `astro/src/{styles,assets}/_brand/`, mirroring the `_ingest/` mount pattern. Wired
+  into `tools/preview/build.ts` and `publish_docs.yml` ahead of `astro build`; both
+  degrade gracefully to the committed `brand-fallback.{css,svg}` snapshots if the
+  brand source (CDN, not live yet — local `dist/` path works today) is unreachable.
+  `astro.config.mjs` sets the per-site title from `CODEX_ENGINE_NAME`
+  (`WhittakerTech | <Engine>`) and `astro/src/styles/theme.css` maps `--wt-*` brand
+  tokens onto Starlight's `--sl-*` CSS variables.
 
 **Not yet built (planned enhancements, not blockers):**
 - `tools/virgil/` and `tools/lorelei/` do not exist. `tools/index.ts` registers no tools

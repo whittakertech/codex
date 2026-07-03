@@ -1,0 +1,23 @@
+/* Fallback brand tokens — used only when tools/brand/fetch.ts hasn't run yet
+ * (e.g. plain `astro dev`/`astro build` without the preview harness or CI).
+ * A static snapshot of the brand package's dist/css/tokens.css; real builds
+ * overwrite src/styles/_brand/tokens.css with the live version instead. Do
+ * not hand-edit values here beyond keeping the variable names in sync with
+ * @whittakertech/brand's tokens/*.json. */
+:root {
+  --wt-color-brand: #3b5bdb;
+  --wt-color-accent: #7048e8;
+  --wt-color-neutral-0: #ffffff;
+  --wt-color-neutral-50: #f5f7fa;
+  --wt-color-neutral-100: #e9edf2;
+  --wt-color-neutral-300: #b3bdc9;
+  --wt-color-neutral-500: #6b7785;
+  --wt-color-neutral-700: #39434f;
+  --wt-color-neutral-900: #11151c;
+  --wt-color-semantic-info: #3b5bdb;
+  --wt-color-semantic-success: #2f9e44;
+  --wt-color-semantic-warning: #e8590c;
+  --wt-color-semantic-danger: #e03131;
+  --wt-font-sans: Inter, system-ui, sans-serif;
+  --wt-font-mono: '"JetBrains Mono"', ui-monospace, monospace;
+}
