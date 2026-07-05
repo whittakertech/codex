@@ -123,10 +123,21 @@ jobs:
       - name: Install Astro dependencies
         run: npm install --prefix astro
 
-      # ── 10. Build static site ─────────────────────────────────────────────
+      # ── 10. Fetch brand theme + product logo ───────────────────────────────
+      # Falls back to the committed snapshot (astro/src/styles/brand-fallback.css)
+      # if the brand CDN is unreachable — never blocks a docs publish.
+      - name: Fetch brand theme
+        run: |
+          node dist/tools/brand/fetch.js \
+            --product="${{ inputs.engine_repo }}" \
+            --source="${CODEX_BRAND_SOURCE:-https://brand.whittakertech.com}" \
+          || echo "[codex] brand fetch skipped — using fallback theme"
+
+      # ── 11. Build static site ─────────────────────────────────────────────
       - name: Build static site
         env:
           CODEX_SITE_URL: ${{ inputs.site_url }}
+          CODEX_ENGINE_NAME: ${{ inputs.engine_repo }}
         run: npm run build --prefix astro
 
       # ── 11. Persist overlay state ─────────────────────────────────────────
