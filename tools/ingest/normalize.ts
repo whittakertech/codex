@@ -27,7 +27,8 @@ export async function normalizeFile(path: string): Promise<boolean> {
   if (hasFrontmatterTitle(original)) {
     return false;
   }
-  const normalized = injectTitle(original, deriveTitle(original, path));
+  const { title, body } = extractTitle(original, path);
+  const normalized = injectTitle(body, title);
   await writeFile(path, normalized, 'utf-8');
   return true;
 }
@@ -56,12 +57,35 @@ function hasFrontmatterTitle(content: string): boolean {
   return /^\s*title\s*:/m.test(content.slice(3, end));
 }
 
-function deriveTitle(content: string, path: string): string {
-  const heading = stripFrontmatter(content).match(/^\s*#\s+(.+?)\s*$/m);
-  if (heading?.[1]) {
-    return heading[1].trim();
+/**
+ * Derive a title from the doc's leading H1 (Starlight's layout renders its
+ * own H1 from frontmatter title, so a leading H1 in the body would otherwise
+ * render twice) or fall back to a title-cased filename. Returns the title
+ * plus the content with that H1 line (and one trailing blank line) removed.
+ */
+function extractTitle(content: string, path: string): { title: string; body: string } {
+  const frontmatterEnd = content.startsWith('---') ? content.indexOf('\n---', 3) : -1;
+  const bodyStart = frontmatterEnd === -1 ? 0 : frontmatterEnd + 4;
+  const prefix = content.slice(0, bodyStart);
+  const rest = content.slice(bodyStart);
+
+  // Match only the first non-blank line, so `\s*` can't creep across the
+  // blank-line separator that follows the heading (that separator is
+  // stripped explicitly below, not absorbed into the heading match).
+  const firstLine = rest.match(/^[ \t]*\S.*$/m);
+  if (firstLine && /^[ \t]*#[ \t]+\S/.test(firstLine[0])) {
+    const title = firstLine[0].replace(/^[ \t]*#[ \t]+/, '').trim();
+    const start = firstLine.index ?? 0;
+    const end = start + firstLine[0].length;
+    return {
+      title,
+      body: prefix + rest.slice(0, start) + rest.slice(end).replace(/^(?:\r?\n)+/, ''),
+    };
   }
-  return titleCase(basename(path).replace(/\.(md|mdx)$/i, ''));
+  return {
+    title: titleCase(basename(path).replace(/\.(md|mdx)$/i, '')),
+    body: content,
+  };
 }
 
 function injectTitle(content: string, title: string): string {
@@ -71,14 +95,6 @@ function injectTitle(content: string, title: string): string {
     return content.replace(/^---\r?\n/, `---\ntitle: "${escaped}"\n`);
   }
   return `---\ntitle: "${escaped}"\n---\n\n${content}`;
-}
-
-function stripFrontmatter(content: string): string {
-  if (!content.startsWith('---')) {
-    return content;
-  }
-  const end = content.indexOf('\n---', 3);
-  return end === -1 ? content : content.slice(end + 4);
 }
 
 function titleCase(name: string): string {
