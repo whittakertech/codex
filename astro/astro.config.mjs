@@ -34,6 +34,30 @@ function buildSidebar() {
     .filter((group) => group.items.length > 0);
 }
 
+/**
+ * Reading-order tiers: overview, then onboarding, then topic/how-to guides
+ * (the bulk of most engines' docs, alphabetical among themselves since we
+ * can't know their names up front), then deep reference, then changelog
+ * last. Keyed by the doc's top-level path segment (its filename, or its
+ * parent directory name for nested files like `api/foo.md`).
+ */
+const SIDEBAR_TIERS = {
+  index: 0,
+  installation: 1,
+  'getting-started': 1,
+  quickstart: 1,
+  setup: 1,
+  architecture: 3,
+  api: 4,
+  changelog: 5,
+};
+const DEFAULT_TIER = 2;
+
+function tierFor(rel) {
+  const stem = rel.split('/')[0].toLowerCase();
+  return SIDEBAR_TIERS[stem] ?? DEFAULT_TIER;
+}
+
 /** Build sorted `{ label, link }` items for one engine directory. */
 function sidebarItemsFor(engine) {
   const root = join(INGEST_DIR, engine);
@@ -43,12 +67,9 @@ function sidebarItemsFor(engine) {
       const isIndex = rel === 'index' || rel.endsWith('/index');
       const path = isIndex ? rel.replace(/\/?index$/, '') : rel;
       const link = `/${engine}${path ? `/${path}` : ''}/`;
-      return { label: docTitle(file), link, isIndex };
+      return { label: docTitle(file), link, tier: tierFor(rel) };
     })
-    // Index first, then alphabetical by label.
-    .sort((a, b) =>
-      a.isIndex === b.isIndex ? a.label.localeCompare(b.label) : a.isIndex ? -1 : 1
-    )
+    .sort((a, b) => a.tier - b.tier || a.label.localeCompare(b.label))
     .map(({ label, link }) => ({ label, link }));
 }
 

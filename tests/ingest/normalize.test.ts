@@ -21,8 +21,15 @@ describe('normalizeFile', () => {
     await writeFile(file, '# WhittakerTech::Midas\n\nBody.\n');
     expect(await normalizeFile(file)).toBe(true);
     const out = await readFile(file, 'utf-8');
-    expect(out).toMatch(/^---\ntitle: "WhittakerTech::Midas"\n---\n/);
-    expect(out).toContain('# WhittakerTech::Midas');
+    expect(out).toBe('---\ntitle: "WhittakerTech::Midas"\n---\n\nBody.\n');
+  });
+
+  it('strips the leading H1 so Starlight does not render it twice', async () => {
+    const file = join(tmp, 'index.md');
+    await writeFile(file, '# WhittakerTech::Midas\n\nBody.\n');
+    await normalizeFile(file);
+    const out = await readFile(file, 'utf-8');
+    expect(out).not.toContain('# WhittakerTech::Midas');
   });
 
   it('falls back to a title-cased filename when there is no H1', async () => {
