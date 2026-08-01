@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 #
-# codex-preview — build + serve a per-engine hatchery preview of the unified
-# Codex docs style, in one command.
+# codex-preview — build + serve a hatchery preview of the unified Codex docs
+# style, in one command.
 #
 #   bin/codex-preview <engine> <docs-path>
 #   e.g. bin/codex-preview midas ~/apps/midas/docs
 #
-# Builds the engine's docs into astro/dist (driver defaults the canonical URL to
-# <engine>.hatchery.whittakertech.com), then serves them via the nginx + Traefik
-# stack. One preview runs at a time — astro/dist holds the most recent build.
+# Builds the engine's docs into astro/dist, then serves them via the nginx +
+# Traefik stack at https://codex.hatchery.whittakertech.com -- named after
+# Codex itself, not the engine, since this previews Codex's unified
+# rendering style, not any one engine's own docs site. One build lives in
+# astro/dist at a time -- re-run for a different engine (or run the driver
+# directly with multiple --engine/--src pairs to ingest more than one at
+# once) to change what's being previewed.
 set -euo pipefail
 
 ENGINE="${1:-}"
@@ -33,10 +37,8 @@ export PATH="$ASDF_DATA_DIR/bin:$ASDF_DATA_DIR/shims:$PATH"
 # Build the static site for this engine.
 npm run preview:build -- --engine "$ENGINE" --src "$SRC"
 
-# Serve it. ENGINE drives the container name + Traefik host; the bind-mounted
-# dist means a rebuild needs no restart. --remove-orphans clears a prior engine's
-# container when switching engines (only one preview runs at a time).
-ENGINE="$ENGINE" docker compose up -d --remove-orphans
+# Serve it. The bind-mounted dist means a rebuild needs no restart.
+docker compose up -d
 
 echo
-echo "✓ Preview live: https://${ENGINE}.hatchery.whittakertech.com"
+echo "✓ Preview live: https://codex.hatchery.whittakertech.com"

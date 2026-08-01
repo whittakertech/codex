@@ -1,6 +1,6 @@
-import { cp, mkdir, rm } from 'node:fs/promises';
+import { cp, mkdir, readdir, rename, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { normalizeDir } from '../ingest/normalize.js';
@@ -15,11 +15,11 @@ import { fetchBrand } from '../brand/fetch.js';
  * (Virgil/Lorelei) is intentionally out of scope — docs-only, per epic 0.2.0.
  */
 export interface PreviewArgs {
-  /** Engine slug — also the _ingest/ subdir and the default hatchery subdomain. */
+  /** Engine slug — also the _ingest/ subdir. */
   engine: string;
   /** Local docs directory to mount (e.g. ~/apps/midas/docs). */
   src: string;
-  /** Canonical site URL; defaults to the engine's hatchery host. */
+  /** Canonical site URL; defaults to the Codex hatchery preview host. */
   siteUrl?: string;
   /** Brand CDN root or a local `dist/` path; defaults to CODEX_BRAND_SOURCE or the CDN. */
   brandSource?: string;
@@ -53,10 +53,50 @@ function titleCase(name: string): string {
   return name.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const DOC_EXTENSIONS = new Set(['.md', '.mdx']);
+
+async function listDocFiles(dir: string): Promise<string[]> {
+  const out: string[] = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...(await listDocFiles(full)));
+    } else if (DOC_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 /**
- * Clear and re-populate `<ingestRoot>/<engine>/` from `src`, then normalize.
- * Clearing first keeps the mount idempotent across re-runs. Returns the
- * destination and the list of files the normalizer touched.
+ * If `dir` has exactly one doc file and it isn't already named `index`,
+ * rename it to `index.<ext>` so the engine's section root (e.g. `/oscar/`)
+ * resolves to it directly. Without this, a single-doc engine has no
+ * landing page at its section root -- Starlight/nginx 403 there (no
+ * `index.html`), even though the one page that exists is reachable at its
+ * own path (e.g. `/oscar/design/`).
+ */
+async function promoteSoleDocToIndex(dir: string): Promise<void> {
+  const docs = await listDocFiles(dir);
+  if (docs.length !== 1) return;
+  const [only] = docs;
+  const ext = extname(only);
+  if (basename(only, ext) === 'index') return;
+  await rename(only, join(dirname(only), `index${ext}`));
+}
+
+/**
+ * Clear the whole `ingestRoot` and re-populate `<ingestRoot>/<engine>/` from
+ * `src`, then normalize. Clearing the *whole* ingest root (not just this
+ * engine's own subdir) matters: the hatchery preview holds one build at a
+ * time, matching production where each engine gets its own deployed site
+ * (see astro.config.mjs's CODEX_ENGINE_NAME/CODEX_SITE_URL comments) --
+ * site-wide branding (title, logo) is a single global value, not per-engine.
+ * Without a full clear, an engine mounted by a *prior* run lingers in the
+ * next build, now decorated with the new run's branding -- e.g. a stale
+ * `/midas/` page rendering under Oscar's title and logo.
+ *
+ * Returns the destination and the list of files the normalizer touched.
  */
 export async function mountDocs(opts: {
   engine: string;
@@ -67,17 +107,23 @@ export async function mountDocs(opts: {
   if (!existsSync(src)) {
     throw new Error(`source docs path not found: ${src}`);
   }
+  await rm(opts.ingestRoot, { recursive: true, force: true });
   const dest = join(opts.ingestRoot, opts.engine);
-  await rm(dest, { recursive: true, force: true });
   await mkdir(dest, { recursive: true });
   await cp(src, dest, { recursive: true });
   const normalized = await normalizeDir(dest);
+  await promoteSoleDocToIndex(dest);
   return { dest, normalized };
 }
 
-/** Default canonical URL for an engine preview on the hatchery. */
-export function defaultSiteUrl(engine: string): string {
-  return `https://${engine}.hatchery.whittakertech.com`;
+/**
+ * Default canonical URL for the hatchery preview. Stable and engine-
+ * independent -- one build/container/router previews Codex's unified
+ * rendering style, not any one engine's own docs site, so it's named after
+ * Codex rather than whichever engine was most recently ingested.
+ */
+export function defaultSiteUrl(_engine: string): string {
+  return 'https://codex.hatchery.whittakertech.com';
 }
 
 /** Mount + normalize the engine docs, then run `astro build` against them. */
