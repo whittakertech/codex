@@ -72,6 +72,42 @@ describe('mountDocs', () => {
     expect(existsSync(join(dest, 'stale.md'))).toBe(false);
   });
 
+  it('clears a PRIOR engine entirely when mounting a different one', async () => {
+    // Only one build lives in astro/dist at a time (matching production,
+    // where each engine gets its own deployed site) -- a leftover engine
+    // from an earlier run must not survive into the next one, since it'd
+    // render under the new run's site-wide branding.
+    await writeFile(join(src, 'index.md'), '# Midas\n');
+    await mountDocs({ engine: 'midas', src, ingestRoot });
+    expect(existsSync(join(ingestRoot, 'midas'))).toBe(true);
+
+    const src2 = join(tmp, 'src-docs-2');
+    await mkdir(src2, { recursive: true });
+    await writeFile(join(src2, 'design.md'), '# Oscar\n');
+    await mountDocs({ engine: 'oscar', src: src2, ingestRoot });
+
+    expect(existsSync(join(ingestRoot, 'midas'))).toBe(false);
+    expect(existsSync(join(ingestRoot, 'oscar'))).toBe(true);
+  });
+
+  it('promotes a lone doc file to index so the section root resolves', async () => {
+    await writeFile(join(src, 'design.md'), '# Oscar Design\n\nBody.\n');
+    const { dest } = await mountDocs({ engine: 'oscar', src, ingestRoot });
+
+    expect(existsSync(join(dest, 'design.md'))).toBe(false);
+    expect(await readFile(join(dest, 'index.md'), 'utf-8')).toMatch(/^---\ntitle: "Oscar Design"\n---/);
+  });
+
+  it('leaves multiple doc files alone (no promotion, no index required)', async () => {
+    await writeFile(join(src, 'one.md'), '# One\n');
+    await writeFile(join(src, 'two.md'), '# Two\n');
+    const { dest } = await mountDocs({ engine: 'midas', src, ingestRoot });
+
+    expect(existsSync(join(dest, 'one.md'))).toBe(true);
+    expect(existsSync(join(dest, 'two.md'))).toBe(true);
+    expect(existsSync(join(dest, 'index.md'))).toBe(false);
+  });
+
   it('throws when the source path is missing', async () => {
     await expect(
       mountDocs({ engine: 'midas', src: join(tmp, 'nope'), ingestRoot })
