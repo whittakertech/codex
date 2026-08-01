@@ -15,11 +15,11 @@ import { fetchBrand } from '../brand/fetch.js';
  * (Virgil/Lorelei) is intentionally out of scope — docs-only, per epic 0.2.0.
  */
 export interface PreviewArgs {
-  /** Engine slug — also the _ingest/ subdir and the default hatchery subdomain. */
+  /** Engine slug — also the _ingest/ subdir. */
   engine: string;
   /** Local docs directory to mount (e.g. ~/apps/midas/docs). */
   src: string;
-  /** Canonical site URL; defaults to the engine's hatchery host. */
+  /** Canonical site URL; defaults to the Codex hatchery preview host. */
   siteUrl?: string;
   /** Brand CDN root or a local `dist/` path; defaults to CODEX_BRAND_SOURCE or the CDN. */
   brandSource?: string;
@@ -75,9 +75,14 @@ export async function mountDocs(opts: {
   return { dest, normalized };
 }
 
-/** Default canonical URL for an engine preview on the hatchery. */
-export function defaultSiteUrl(engine: string): string {
-  return `https://${engine}.hatchery.whittakertech.com`;
+/**
+ * Default canonical URL for the hatchery preview. Stable and engine-
+ * independent -- one build/container/router previews Codex's unified
+ * rendering style, not any one engine's own docs site, so it's named after
+ * Codex rather than whichever engine was most recently ingested.
+ */
+export function defaultSiteUrl(_engine: string): string {
+  return 'https://codex.hatchery.whittakertech.com';
 }
 
 /** Mount + normalize the engine docs, then run `astro build` against them. */

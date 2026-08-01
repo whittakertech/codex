@@ -28,8 +28,9 @@ describe('parseArgs', () => {
 });
 
 describe('defaultSiteUrl', () => {
-  it('targets the engine hatchery subdomain', () => {
-    expect(defaultSiteUrl('midas')).toBe('https://midas.hatchery.whittakertech.com');
+  it('targets the stable Codex hatchery preview host, regardless of engine', () => {
+    expect(defaultSiteUrl('midas')).toBe('https://codex.hatchery.whittakertech.com');
+    expect(defaultSiteUrl('oscar')).toBe('https://codex.hatchery.whittakertech.com');
   });
 });
 

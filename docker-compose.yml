@@ -1,23 +1,24 @@
-# Hatchery preview of the Codex-unified docs style, served per engine.
+# Hatchery preview of the Codex-unified docs style.
 #
-# Static-only: nginx serves the site the local driver builds into astro/dist
-# (`npm run preview:build -- --engine midas --src ~/apps/midas/docs`). A rebuild
-# is just a re-run of the driver — the dir is bind-mounted, no image rebuild.
+# Static-only: nginx serves whatever the local driver last built into
+# astro/dist (`npm run preview:build -- --engine <engine> --src <path>`). A
+# rebuild is just a re-run of the driver -- the dir is bind-mounted, no image
+# rebuild. One build lives in astro/dist at a time (each `bin/codex-preview`
+# run overwrites it for whichever engine(s) were most recently ingested), so
+# the preview is named after Codex itself, not any one engine -- there's
+# nothing per-engine to route by.
 #
-# Routing: *.hatchery.whittakertech.com already has wildcard DNS + Advanced SSL
-# + a tunnel public-hostname, so a Traefik router on the shared `proxy` network
-# is all that's needed to publish at midas.hatchery.whittakertech.com. Public,
-# no auth — the content is already public at midas.whittakertech.com.
+# Routing: *.hatchery.whittakertech.com already has wildcard DNS + Advanced
+# SSL + a tunnel public-hostname, so a Traefik router on the shared `proxy`
+# network is all that's needed to publish at codex.hatchery.whittakertech.com.
+# Public, no auth -- previewed content is already public at each engine's own
+# whittakertech.com site.
 name: codex
 
-# ENGINE selects which engine's preview to serve (default: midas). One preview
-# runs at a time — astro/dist holds the most recently built engine; bring up a
-# different engine by rebuilding it and re-running with ENGINE set. `bin/codex-preview`
-# wires the build + ENGINE together.
 services:
   preview:
     image: nginx:alpine
-    container_name: codex-${ENGINE:-midas}-preview
+    container_name: codex-preview
     restart: unless-stopped
     volumes:
       - ./astro/dist:/usr/share/nginx/html:ro
@@ -26,9 +27,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.codex-${ENGINE:-midas}.rule=Host(`${ENGINE:-midas}.hatchery.whittakertech.com`)"
-      - "traefik.http.routers.codex-${ENGINE:-midas}.entrypoints=web,tunnel"
-      - "traefik.http.services.codex-${ENGINE:-midas}.loadbalancer.server.port=80"
+      - "traefik.http.routers.codex-preview.rule=Host(`codex.hatchery.whittakertech.com`)"
+      - "traefik.http.routers.codex-preview.entrypoints=web,tunnel"
+      - "traefik.http.services.codex-preview.loadbalancer.server.port=80"
 
 networks:
   proxy:

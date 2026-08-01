@@ -60,28 +60,30 @@ npm run preview:build -- --engine midas --src ~/apps/midas/docs
 ## Hatchery preview
 
 Codex unifies documentation **style** across the ecosystem (Ruby/YARD + Node/TypeDoc)
-into one Starlight presentation. The hatchery preview renders a single engine's docs
-through that pipeline so the unified style can be validated before an engine cuts over
-— it does not publish docs (engines already ship their own, e.g. midas.whittakertech.com).
+into one Starlight presentation. The hatchery preview renders engine docs through
+that pipeline so the unified style can be validated before an engine cuts over —
+it does not publish docs (engines already ship their own, e.g. midas.whittakertech.com).
+It's named after Codex itself, not any one engine, since that's what it's actually
+previewing.
 
-One command builds and serves a per-engine preview:
+One command builds and serves it:
 
 ```bash
 bin/codex-preview <engine> <docs-path>
 # e.g.
 bin/codex-preview midas ~/apps/midas/docs
-# → https://midas.hatchery.whittakertech.com
+# → https://codex.hatchery.whittakertech.com
 ```
 
 It mounts the local docs into `_ingest/`, normalizes frontmatter, runs `astro build`
-(canonical URL defaults to `<engine>.hatchery.whittakertech.com`), then serves
+(canonical URL defaults to `codex.hatchery.whittakertech.com`), then serves
 `astro/dist` via nginx behind Traefik (`docker compose up -d`). The
 `*.hatchery.whittakertech.com` wildcard already provides DNS + TLS + tunnel routing,
 so only the Traefik router is added.
 
-One preview runs at a time (`astro/dist` holds the most recent build). Re-run the
-command to rebuild after docs change — the bind-mounted `dist` needs no restart.
-Tear down with `docker compose down`.
+One build lives in `astro/dist` at a time. Re-run the command (with a different
+`--engine`/docs path, or after docs change) to rebuild — the bind-mounted `dist`
+needs no restart. Tear down with `docker compose down`.
 
 ---
 

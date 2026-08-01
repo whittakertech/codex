@@ -90,9 +90,10 @@ npm test               # Vitest
 npm install --prefix astro
 npm run build --prefix astro
 
-# Hatchery preview — build + serve one engine's docs in one command
+# Hatchery preview — build + serve engine docs in one command (named after
+# Codex, not the engine — one stable preview of Codex's unified rendering)
 bin/codex-preview midas ~/apps/midas/docs
-# → https://midas.hatchery.whittakertech.com  (docker compose down to tear down)
+# → https://codex.hatchery.whittakertech.com  (docker compose down to tear down)
 ```
 
 > Starlight owns docs-collection routing — do **not** add a custom `[...slug].astro`.
