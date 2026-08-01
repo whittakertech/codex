@@ -40,9 +40,25 @@ jobs:
 
     steps:
       # ── 1. Checkout Codex (main) ───────────────────────────────────────────
+      # Explicit `repository:` matters here: this is a `workflow_call` reusable
+      # workflow, and `github.repository` inside a reusable-workflow run
+      # resolves to the CALLING repo's context, not this file's own repo. An
+      # engine repo (e.g. oscar) calling this cross-repo would otherwise check
+      # out ITS OWN source here instead of Codex's -- breaking every step below
+      # that needs Codex's npm install / Astro build.
+      #
+      # `ssh-key` matters too, for the SAME cross-repo reason: step 6/11's
+      # `git push origin $OVERLAY_BRANCH` (persisting state back to Codex)
+      # reuses whatever auth this checkout configured for `origin`. The
+      # default GITHUB_TOKEN is scoped to the CALLING repo (e.g. oscar), which
+      # has no write access to Codex -- CODEX_DEPLOY_KEY (a deploy key with
+      # write access on both Codex and the target engine repo) is what makes
+      # both that push AND the later gh-pages deploy possible from any caller.
       - name: Checkout Codex
         uses: actions/checkout@v4
         with:
+          repository: whittakertech/codex
+          ssh-key: ${{ secrets.CODEX_DEPLOY_KEY }}
           path: .
           fetch-depth: 0  # full history needed for overlay branch operations
 
