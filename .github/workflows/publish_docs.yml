@@ -113,20 +113,26 @@ jobs:
           fi
 
       # ── 7. Mount ingest content ───────────────────────────────────────────
+      # Mounted at the ingest ROOT, not under an {owner}_{repo} subdir: this
+      # workflow always deploys to ONE engine's own gh-pages branch, so
+      # there's nothing to disambiguate -- unlike the shared hatchery preview
+      # (bin/codex-preview), which can hold multiple engines in one build and
+      # needs that subdir to tell them apart. A prefix here would just be
+      # noise in every URL on the engine's dedicated site
+      # (oscar.whittakertech.com/installation/, not
+      # oscar.whittakertech.com/whittakertech_oscar/installation/).
       - name: Mount ingest content
         run: |
-          ENGINE="${{ inputs.engine_owner }}_${{ inputs.engine_repo }}"
-
           # Docs (handwritten + YARD-generated API)
-          mkdir -p "astro/src/_ingest/$ENGINE"
+          mkdir -p astro/src/_ingest
           if [ -d ".engine/docs/" ]; then
-            rsync -a ".engine/docs/" "astro/src/_ingest/$ENGINE/"
+            rsync -a ".engine/docs/" astro/src/_ingest/
           fi
 
           # Public assets (images, logos)
           if [ -d ".engine/public/" ]; then
-            mkdir -p "astro/public/_ingest/$ENGINE"
-            rsync -a ".engine/public/" "astro/public/_ingest/$ENGINE/"
+            mkdir -p astro/public/_ingest
+            rsync -a ".engine/public/" astro/public/_ingest/
           fi
 
       # ── 8. Run tool orchestration ─────────────────────────────────────────
@@ -149,7 +155,7 @@ jobs:
       # failed content validation on any doc lacking explicit frontmatter.
       # Must run after step 8's `npm run build` (needs dist/ to exist).
       - name: Normalize ingest frontmatter
-        run: node dist/tools/ingest/normalize.js "astro/src/_ingest/${{ inputs.engine_owner }}_${{ inputs.engine_repo }}"
+        run: node dist/tools/ingest/normalize.js astro/src/_ingest
 
       # ── 9. Install Astro dependencies ─────────────────────────────────────
       - name: Install Astro dependencies
