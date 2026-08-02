@@ -32,6 +32,18 @@ describe('normalizeFile', () => {
     expect(out).not.toContain('# WhittakerTech::Midas');
   });
 
+  it('strips a trailing HTML anchor tag from the extracted title (YARD self-link heading)', async () => {
+    const file = join(tmp, 'Taxonomy.md');
+    await writeFile(
+      file,
+      '# Class WhittakerTech::Oscar::Taxonomy <a id="class-WhittakerTech-Oscar-Taxonomy"></a>\n\nBody.\n'
+    );
+    await normalizeFile(file);
+    const out = await readFile(file, 'utf-8');
+    expect(out).toMatch(/^---\ntitle: "Class WhittakerTech::Oscar::Taxonomy"\n---/);
+    expect(out).not.toContain('<a id=');
+  });
+
   it('falls back to a title-cased filename when there is no H1', async () => {
     const file = join(tmp, 'getting-started.md');
     await writeFile(file, 'Just prose, no heading.\n');
