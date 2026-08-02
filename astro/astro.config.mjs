@@ -9,27 +9,49 @@ const INGEST_DIR = join(__dirname, 'src', '_ingest');
 const DOC_EXTS = new Set(['.md', '.mdx']);
 
 /**
- * Build the sidebar from the engine docs mounted under _ingest/ at build time.
+ * Build the sidebar from the docs mounted under _ingest/ at build time.
  *
  * Starlight's own `autogenerate` is hard-wired to walk `src/content/docs/`
  * (utils/navigation.ts strips that path from entry IDs), so it produces empty
  * groups for our custom glob loader rooted at _ingest/. We therefore enumerate
- * the mounted files ourselves and emit explicit `{ label, link }` items — links
- * match the routes Starlight generates from the `docs` collection (entry id
- * `{engine}/page` → `/{engine}/page/`, with `index` collapsing to the dir root).
+ * the mounted files ourselves and emit explicit `{ label, link }` items.
+ *
+ * Two mount shapes exist, and this branches on which one is present:
+ * - _ingest/{engine}/{page} -- the shared hatchery preview (bin/codex-preview),
+ *   which can hold multiple engines in one build. One sidebar group per
+ *   engine subdir.
+ * - _ingest/{page} directly -- external single-engine deploys
+ *   (publish_docs.yml mounts at the ingest root, no subdir, since there's
+ *   only ever one engine in that build -- see that workflow's step 7).
+ *   Flat sidebar, no engine-level grouping.
+ * Detected by whether _ingest/ contains loose doc files directly (root
+ * mount) vs. only subdirectories (per-engine mount).
+ *
+ * Links must match the actual routes Astro's content collection generates
+ * from file paths, which are lowercased by Astro's default slug derivation
+ * -- YARD's generated API docs preserve Ruby's CamelCase class namespacing
+ * (e.g. `WhittakerTech/Oscar/Taxonomy.md`), so links built from the raw file
+ * path without lowercasing 404 against the real (lowercased) route.
  *
  * Returns an empty array if _ingest/ is absent (e.g. local dev without content).
  */
 function buildSidebar() {
   if (!existsSync(INGEST_DIR)) return [];
 
-  return readdirSync(INGEST_DIR, { withFileTypes: true })
+  const entries = readdirSync(INGEST_DIR, { withFileTypes: true });
+  const isRootMount = entries.some((e) => e.isFile() && DOC_EXTS.has(extname(e.name).toLowerCase()));
+
+  if (isRootMount) {
+    return buildSidebarItems(INGEST_DIR, '/');
+  }
+
+  return entries
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
     .sort()
     .map((engine) => ({
       label: titleCase(engine),
-      items: sidebarItemsFor(engine),
+      items: buildSidebarItems(join(INGEST_DIR, engine), `/${engine}/`),
     }))
     .filter((group) => group.items.length > 0);
 }
@@ -58,15 +80,18 @@ function tierFor(rel) {
   return SIDEBAR_TIERS[stem] ?? DEFAULT_TIER;
 }
 
-/** Build sorted `{ label, link }` items for one engine directory. */
-function sidebarItemsFor(engine) {
-  const root = join(INGEST_DIR, engine);
+/**
+ * Build sorted `{ label, link }` items for every doc under `root`, with
+ * links prefixed by `prefix` (e.g. `/midas/` for a per-engine mount, `/`
+ * for a root mount). Lowercased to match Astro's own slug derivation.
+ */
+function buildSidebarItems(root, prefix) {
   return listDocs(root)
     .map((file) => {
       const rel = relative(root, file).replace(/\.(md|mdx)$/i, '');
       const isIndex = rel === 'index' || rel.endsWith('/index');
       const path = isIndex ? rel.replace(/\/?index$/, '') : rel;
-      const link = `/${engine}${path ? `/${path}` : ''}/`;
+      const link = `${prefix}${path ? `${path}/` : ''}`.toLowerCase();
       return { label: docTitle(file), link, tier: tierFor(rel) };
     })
     .sort((a, b) => a.tier - b.tier || a.label.localeCompare(b.label))
