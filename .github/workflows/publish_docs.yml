@@ -140,6 +140,17 @@ jobs:
             --repo="${{ inputs.engine_repo }}" \
             --ref="${{ inputs.engine_ref }}"
 
+      # ── 8b. Normalize ingest frontmatter ────────────────────────────────
+      # Starlight's docsSchema requires a `title` on every doc; engine docs
+      # are typically plain Markdown with none. The local preview driver
+      # (tools/preview/build.ts) calls this same normalizer after mounting --
+      # this step was missing here entirely (this whole workflow had never
+      # actually been run before), so every engine's first real publish
+      # failed content validation on any doc lacking explicit frontmatter.
+      # Must run after step 8's `npm run build` (needs dist/ to exist).
+      - name: Normalize ingest frontmatter
+        run: node dist/tools/ingest/normalize.js "astro/src/_ingest/${{ inputs.engine_owner }}_${{ inputs.engine_repo }}"
+
       # ── 9. Install Astro dependencies ─────────────────────────────────────
       - name: Install Astro dependencies
         run: npm install --prefix astro
