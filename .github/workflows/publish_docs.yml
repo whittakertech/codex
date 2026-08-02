@@ -171,6 +171,20 @@ jobs:
             --source="${CODEX_BRAND_SOURCE:-https://brand.whittakertech.com}" \
           || echo "[codex] brand fetch skipped — using fallback theme"
 
+      # ── 10b. Skip the generic multi-engine landing page ────────────────────
+      # astro/src/pages/index.astro lists every subdir under _ingest/ as an
+      # "engine" and claims the site root (/) to do it -- correct for the
+      # shared hatchery preview, which can hold multiple engines in one
+      # build, but wrong here: this workflow mounts exactly one engine at
+      # the ingest ROOT (see step 7), so that page would (a) list ingest
+      # subdirectories like api/ as if they were separate engines, and
+      # (b) win the / route over the ingested docs/index.md, which wants to
+      # be this engine's real homepage. Deleting it lets Starlight's own
+      # content-collection routing claim / from the ingested index doc
+      # instead.
+      - name: Skip generic landing page
+        run: rm -f astro/src/pages/index.astro
+
       # ── 11. Build static site ─────────────────────────────────────────────
       - name: Build static site
         env:
