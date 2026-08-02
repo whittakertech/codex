@@ -25,8 +25,12 @@ on:
         type: string
         required: true
     secrets:
-      CODEX_DEPLOY_KEY:
-        description: "SSH deploy key with write access to the engine's gh-pages branch and Codex overlay branches"
+      CODEX_GITHUB_TOKEN:
+        description: >-
+          Fine-grained PAT with contents:write on both whittakertech/codex
+          (overlay state branches) and the target engine repo (gh-pages).
+          Deploy keys are disabled org-wide on GitHub, so this is a PAT, not
+          an SSH key.
         required: true
 
 jobs:
@@ -40,9 +44,26 @@ jobs:
 
     steps:
       # ── 1. Checkout Codex (main) ───────────────────────────────────────────
+      # Explicit `repository:` matters here: this is a `workflow_call` reusable
+      # workflow, and `github.repository` inside a reusable-workflow run
+      # resolves to the CALLING repo's context, not this file's own repo. An
+      # engine repo (e.g. oscar) calling this cross-repo would otherwise check
+      # out ITS OWN source here instead of Codex's -- breaking every step below
+      # that needs Codex's npm install / Astro build.
+      #
+      # `token` matters too, for the SAME cross-repo reason: step 6/11's
+      # `git push origin $OVERLAY_BRANCH` (persisting state back to Codex)
+      # reuses whatever auth this checkout configured for `origin`. The
+      # default GITHUB_TOKEN is scoped to the CALLING repo (e.g. oscar), which
+      # has no write access to Codex -- CODEX_GITHUB_TOKEN (a fine-grained PAT
+      # with write access on both Codex and the target engine repo) is what
+      # makes both that push AND the later gh-pages deploy possible from any
+      # caller. (Not a deploy key: those are disabled org-wide on GitHub.)
       - name: Checkout Codex
         uses: actions/checkout@v4
         with:
+          repository: whittakertech/codex
+          token: ${{ secrets.CODEX_GITHUB_TOKEN }}
           path: .
           fetch-depth: 0  # full history needed for overlay branch operations
 
@@ -176,10 +197,13 @@ jobs:
           git checkout main
 
       # ── 12. Deploy to engine gh-pages ─────────────────────────────────────
+      # personal_token (not deploy_key) -- deploy keys are disabled org-wide
+      # on GitHub, and a PAT is the documented alternative for
+      # external_repository deploys with this action.
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          deploy_key:          ${{ secrets.CODEX_DEPLOY_KEY }}
+          personal_token:      ${{ secrets.CODEX_GITHUB_TOKEN }}
           external_repository: ${{ inputs.engine_owner }}/${{ inputs.engine_repo }}
           publish_dir:         astro/dist/
           force_orphan:        true
