@@ -74,7 +74,15 @@ function extractTitle(content: string, path: string): { title: string; body: str
   // stripped explicitly below, not absorbed into the heading match).
   const firstLine = rest.match(/^[ \t]*\S.*$/m);
   if (firstLine && /^[ \t]*#[ \t]+\S/.test(firstLine[0])) {
-    const title = firstLine[0].replace(/^[ \t]*#[ \t]+/, '').trim();
+    const title = firstLine[0]
+      .replace(/^[ \t]*#[ \t]+/, '')
+      // Strip a trailing HTML tag and anything after it -- YARD's markdown
+      // output appends a self-link anchor to every heading, e.g.
+      // `Class WhittakerTech::Oscar::Taxonomy <a id="...ID..."></a>`. Left
+      // in, it becomes literal escaped-HTML text wherever the title is used
+      // as plain text (e.g. a Starlight sidebar label), not real markup.
+      .replace(/\s*<[^>]*>.*$/, '')
+      .trim();
     const start = firstLine.index ?? 0;
     const end = start + firstLine[0].length;
     return {
