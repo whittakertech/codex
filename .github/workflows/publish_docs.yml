@@ -229,6 +229,27 @@ jobs:
           # checkout, which has no `ref:` and so lands on master, not main)
           git checkout master
 
+      # ── 11b. Compute custom domain, if any ─────────────────────────────────
+      # GitHub Pages reads the CNAME file IN THE PUBLISHED BRANCH as its own
+      # source of truth for a repo's custom domain -- with force_orphan:true
+      # replacing the branch's entire content on every deploy, a custom
+      # domain claimed via the Pages API/UI silently gets DROPPED on the
+      # very next deploy unless that deploy's own output includes a CNAME
+      # file. Bit Oscar's first live custom-domain deploy this way:
+      # oscar.whittakertech.com 404'd immediately after a second run, even
+      # though the site itself (whittakertech.github.io/oscar/) was fine.
+      # Skipped when site_url is a bare *.github.io URL (no real custom
+      # domain to preserve).
+      - name: Compute custom domain
+        id: cname
+        run: |
+          HOST=$(echo "${{ inputs.site_url }}" | sed -E 's#^https?://##; s#/.*##')
+          if [[ "$HOST" == *.github.io ]]; then
+            echo "value=" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$HOST" >> "$GITHUB_OUTPUT"
+          fi
+
       # ── 12. Deploy to engine gh-pages ─────────────────────────────────────
       # personal_token (not deploy_key) -- deploy keys are disabled org-wide
       # on GitHub, and a PAT is the documented alternative for
@@ -240,6 +261,7 @@ jobs:
           external_repository: ${{ inputs.engine_owner }}/${{ inputs.engine_repo }}
           publish_dir:         astro/dist/
           force_orphan:        true
+          cname:               ${{ steps.cname.outputs.value }}
           user_name:           "codex[bot]"
           user_email:          "codex[bot]@users.noreply.github.com"
           commit_message:      "docs: deploy ${{ inputs.engine_repo }} @ ${{ inputs.engine_ref }} [skip ci]"
