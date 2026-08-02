@@ -1,0 +1,36 @@
+name: Mirror to GitHub
+
+# Gitea is the workshop; GitHub is the storefront. Only master and tags ever
+# reach GitHub -- never epic/feature/claude branches (per
+# meta/branch-vocabulary.md). Runs after every push to master and on every
+# version tag.
+#
+# Codex's GitHub mirror had no automated sync at all until this workflow --
+# found stale at an ancient "docs: add README" commit while wiring up
+# Oscar's first real docs publish (WhittakerTech-org/oscar#22), which
+# depends on cross-repo `uses: whittakertech/codex/...@master` resolving
+# current code. workflow_dispatch is included so this can be fired manually
+# once, to catch GitHub up immediately rather than waiting for the next
+# unrelated push to master.
+
+on:
+  push:
+    branches: ["master"]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push master + tags to GitHub mirror
+        run: |
+          git push --force "https://x-access-token:${WHITTAKER_TECH_GITHUB_KEY}@github.com/whittakertech/${{ github.event.repository.name }}.git" \
+            refs/heads/master:refs/heads/master \
+            refs/tags/*:refs/tags/*
+        env:
+          WHITTAKER_TECH_GITHUB_KEY: ${{ secrets.WHITTAKER_TECH_GITHUB_KEY }}
