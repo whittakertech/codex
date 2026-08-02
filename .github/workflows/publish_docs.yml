@@ -204,8 +204,10 @@ jobs:
             git push origin "$OVERLAY_BRANCH" --force-with-lease
           fi
 
-          # Return to main for subsequent steps
-          git checkout main
+          # Return to master for subsequent steps (Codex's default branch --
+          # matches step 1's explicit `repository: whittakertech/codex`
+          # checkout, which has no `ref:` and so lands on master, not main)
+          git checkout master
 
       # ── 12. Deploy to engine gh-pages ─────────────────────────────────────
       # personal_token (not deploy_key) -- deploy keys are disabled org-wide
